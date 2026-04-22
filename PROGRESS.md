@@ -35,10 +35,10 @@
 - [ ] Hyperparameter experiments (lr, seq_len, n_heads, batch_size) — run after full training
 
 ## Phase 5: Visualization & Evaluation
-- [ ] Loss curves plot → `outputs/plots/loss_curves.png`
-- [ ] Attention heatmaps with token labels → `outputs/plots/attn_head_{layer}_{head}.png`
-- [ ] Final validation PPL reported
-- [ ] Sample text generation (greedy / top-k)
+- [x] Loss curves plot → `outputs/plots/loss_curves.png`
+- [x] Attention heatmaps with token labels → `outputs/plots/attn_layer{1,2}_head{1-4}.png`
+- [x] Final validation PPL reported (best: 52.62 at epoch 18)
+- [x] Sample text generation (top-k=10)
 
 ## Phase 7: Submission
 - [ ] GitHub repo set to public
