@@ -32,7 +32,7 @@
 - [x] Per-epoch logging (`train_loss`, `val_loss`)
 - [x] Best checkpoint saving → `outputs/checkpoints/best.pt`
 - [x] Cosine LR scheduler
-- [ ] Hyperparameter experiments (lr, seq_len, n_heads, batch_size) — run after full training
+- [ ] Hyperparameter experiments — `lr_high` (1e-3) and `lr_low` (1e-4) need to be run on Colab
 
 ## Phase 5: Visualization & Evaluation
 - [x] Loss curves plot → `outputs/plots/loss_curves.png`
