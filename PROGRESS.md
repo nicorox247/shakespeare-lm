@@ -16,22 +16,23 @@
 - [x] Batch shape checkpoint verified: `(64, 50)` ✓
 
 ## Phase 3: Model Implementation
-- [ ] Sinusoidal positional encoding (precomputed buffer)
-- [ ] Causal self-attention with causal mask (returns attn weights)
-- [ ] Multi-head attention support
-- [ ] Feed-forward network (GELU, hidden = 2 × d_model)
-- [ ] RMSNorm
-- [ ] Transformer block (pre-norm + residual connections)
-- [ ] Full language model (2 blocks + final norm + vocab projection)
-- [ ] Forward-pass sanity check (shape, no NaNs)
+- [x] Sinusoidal positional encoding (precomputed buffer)
+- [x] Causal self-attention with causal mask (returns attn weights)
+- [x] Multi-head attention support
+- [x] Feed-forward network (GELU, hidden = 2 × d_model)
+- [x] RMSNorm
+- [x] Transformer block (pre-norm + residual connections)
+- [x] Full language model (2 blocks + final norm + vocab projection)
+- [x] Forward-pass sanity check (shape, no NaNs)
 
 ## Phase 4: Training Loop
-- [ ] Cross-entropy loss + AdamW optimizer
-- [ ] Training loop with gradient clipping
-- [ ] Validation loop + PPL computation
-- [ ] Per-epoch logging (`train_loss`, `val_loss`)
-- [ ] Best checkpoint saving → `outputs/checkpoints/best.pt`
-- [ ] Hyperparameter experiments (lr, seq_len, n_heads, batch_size)
+- [x] Cross-entropy loss + AdamW optimizer
+- [x] Training loop with gradient clipping (max norm 1.0)
+- [x] Validation loop + PPL computation
+- [x] Per-epoch logging (`train_loss`, `val_loss`)
+- [x] Best checkpoint saving → `outputs/checkpoints/best.pt`
+- [x] Cosine LR scheduler
+- [ ] Hyperparameter experiments (lr, seq_len, n_heads, batch_size) — run after full training
 
 ## Phase 5: Visualization & Evaluation
 - [ ] Loss curves plot → `outputs/plots/loss_curves.png`
