@@ -1,0 +1,208 @@
+ASSIGNMENT 3 — TINY TRANSFORMER: SUMMARY
+=========================================
+
+TASK
+----
+Build a Transformer language model from scratch in PyTorch, trained on the Tiny Shakespeare
+dataset for next-token prediction. Primary metric: validation perplexity (PPL = exp(val loss)).
+
+
+DATASET
+-------
+- Corpus: Tiny Shakespeare (~1M characters)
+- Tokenizer: Byte Pair Encoding (BPE) via HuggingFace `tokenizers`, vocab_size=500
+- Actual vocab size after training: 500 tokens (including [UNK] and [PAD] special tokens)
+- Total tokens after encoding: ~447,717
+- Sequence format: sliding window of length SEQ_LEN=50, stride=1
+  - Input:  tokens[i : i+50]
+  - Target: tokens[i+1 : i+51]
+- Total sequences: ~447,667
+- Split: 80% train (358,133 sequences) / 20% val (89,534 sequences)
+- Batch size: 64
+
+
+MODEL ARCHITECTURE
+------------------
+Name: TinyTransformer
+Total parameters: ~658K (varies slightly due to weight tying)
+
+Components (in order):
+1. Token embedding: nn.Embedding(500, 128)
+2. Sinusoidal positional encoding (precomputed buffer, shape [1, T, 128])
+   - PE(pos, 2i)   = sin(pos / 10000^(2i/128))
+   - PE(pos, 2i+1) = cos(pos / 10000^(2i/128))
+3. Dropout(0.1) on the summed embeddings
+4. 2x Transformer blocks, each with:
+   a. Pre-norm: RMSNorm(128)
+   b. Causal multi-head self-attention (4 heads, d_k=32 per head)
+      - Q, K, V projections (no bias)
+      - Scaled dot-product: softmax(QK^T / sqrt(32)) * V
+      - Causal mask: upper-triangular -inf before softmax
+      - Returns attention weights for visualization
+   c. Residual connection: x = x + attn_out
+   d. Pre-norm: RMSNorm(128)
+   e. Feed-forward: Linear(128→256) → GELU → Dropout → Linear(256→128) → Dropout
+   f. Residual connection: x = x + ffn_out
+5. Final RMSNorm(128)
+6. LM head: Linear(128→500, no bias), weight-tied to token embedding
+
+RMSNorm implementation:
+  rms = sqrt(mean(x^2) + eps)
+  out = scale * x / rms   (scale is a learned parameter, init=1)
+
+Weight initialization: Normal(mean=0, std=0.02) for all Linear and Embedding layers.
+
+
+TRAINING SETUP
+--------------
+- Loss: CrossEntropyLoss (logits reshaped to [B*T, vocab_size], targets to [B*T])
+- Optimizer: AdamW (lr varies by experiment, weight_decay=0.01)
+- LR schedule: Cosine annealing over total training steps
+- Gradient clipping: max norm = 1.0
+- Epochs: 20 per experiment
+- Best checkpoint saved whenever val loss improves
+
+
+EXPERIMENTS & RESULTS
+---------------------
+Three learning rate configurations were compared. All other hyperparameters held constant.
+
+Experiment  | LR    | Best Val PPL | Best Epoch | Final Val PPL
+------------|-------|--------------|------------|---------------
+baseline    | 3e-4  |    52.62     |    18      |    52.66
+lr_high     | 1e-3  |    52.00     |     9      |    52.63
+lr_low      | 1e-4  |    57.46     |    20      |    57.46
+
+Key observations:
+- lr_high (1e-3) converges fastest — reaches competitive PPL by epoch 9, best overall at 52.00.
+  After epoch 9, val loss plateaus/slightly oscillates while train loss keeps dropping,
+  suggesting mild overfitting or the cosine schedule killing effective learning too early.
+- baseline (3e-4) is stable and steady — val loss decreases smoothly through epoch 18,
+  converging to 52.62. Very close to lr_high's final PPL despite slower start.
+- lr_low (1e-4) underperforms — still descending at epoch 20 (PPL 57.46, never plateaued),
+  indicating it needs more epochs to converge. Not a bad direction, just undertrained.
+
+Epoch-by-epoch val losses:
+  Epoch  | baseline | lr_high | lr_low
+  -------|----------|---------|-------
+    1    |  4.4233  |  4.1119 | 5.3435
+    2    |  4.1980  |  4.0120 | 4.6125
+    3    |  4.1066  |  3.9918 | 4.4190
+    4    |  4.0521  |  3.9679 | 4.3087
+    5    |  4.0221  |  3.9616 | 4.2445
+    6    |  4.0041  |  3.9530 | 4.1996
+    7    |  3.9989  |  3.9570 | 4.1663
+    8    |  3.9961  |  3.9628 | 4.1373
+    9    |  3.9812  |  3.9512 | 4.1146
+   10    |  3.9727  |  3.9641 | 4.0957
+   11    |  3.9733  |  3.9596 | 4.0811
+   12    |  3.9693  |  3.9644 | 4.0729
+   13    |  3.9651  |  3.9666 | 4.0636
+   14    |  3.9664  |  3.9694 | 4.0597
+   15    |  3.9640  |  3.9631 | 4.0560
+   16    |  3.9648  |  3.9636 | 4.0535
+   17    |  3.9651  |  3.9648 | 4.0517
+   18    |  3.9632* |  3.9639 | 4.0512
+   19    |  3.9639  |  3.9632 | 4.0513
+   20    |  3.9638  |  3.9633 | 4.0511*
+  (* = best epoch for each experiment)
+
+
+ATTENTION VISUALIZATION
+-----------------------
+Attention heatmaps generated for the baseline model (best checkpoint).
+- 2 layers × 4 heads = 8 heatmaps total
+- Each heatmap shows 3 sample sequences from the val set (indices 0, 500, 1000)
+- Axes labeled with decoded token strings (trimmed to 6 chars)
+- Color: viridis, brighter = higher attention weight
+- Causal structure confirmed: upper triangle is zero (no future token attention)
+
+Files:
+  outputs/experiments/baseline/plots/attn_layer{1,2}_head{1,2,3,4}.png
+
+
+GENERATED TEXT SAMPLES (baseline model, top-k=10)
+---------------------------------------------------
+Prompt: "ROMEO:"
+  → Shakespeare-style output with character names, partial words, and dialogue structure.
+     Fluency is limited but character names and some common words appear correctly.
+
+Prompt: "To be or not to be"
+  → Continuation with Shakespearean vocabulary; coherence is limited by small model size
+     and 500-token vocabulary but structure is recognizable.
+
+
+PLOTS GENERATED
+---------------
+outputs/experiments/baseline/plots/loss_curves.png      — baseline train/val loss over 20 epochs
+outputs/experiments/lr_high/plots/loss_curves.png       — lr_high train/val loss
+outputs/experiments/lr_low/plots/loss_curves.png        — lr_low train/val loss
+outputs/plots/comparison_lr.png                         — all 3 experiments on one figure (train + val)
+outputs/experiments/baseline/plots/attn_layer1_head1-4.png  — Layer 1 attention heatmaps
+outputs/experiments/baseline/plots/attn_layer2_head1-4.png  — Layer 2 attention heatmaps
+
+
+HYPERPARAMETER CONFIG (baseline)
+---------------------------------
+vocab_size  : 500
+seq_len     : 50
+d_model     : 128
+n_heads     : 4
+n_layers    : 2
+ffn_dim     : 256
+dropout     : 0.1
+lr          : 3e-4
+weight_decay: 0.01
+batch_size  : 64
+num_epochs  : 20
+
+
+DESIGN DECISIONS & JUSTIFICATIONS
+-----------------------------------
+- RMSNorm over LayerNorm: required by assignment; also simpler and empirically comparable.
+- Pre-norm architecture: more stable training than post-norm at small scale.
+- Weight tying (embedding ↔ LM head): reduces parameters and regularizes the output projection.
+- GELU activation: smoother gradient than ReLU, standard in modern Transformers.
+- Cosine LR schedule: prevents aggressive late-training updates; complements AdamW.
+- Gradient clipping (norm=1.0): stabilizes training, especially at lr_high.
+- Sinusoidal positional encoding: deterministic, no learned parameters, generalizes to
+  unseen lengths. Required by assignment.
+- Stride=1 sliding window: maximizes training signal from the corpus at the cost of
+  higher memory usage (mitigated by large val/train sequence counts).
+
+
+POTENTIAL IMPROVEMENTS
+----------------------
+The train/val gap (~3.33 vs ~3.96 at epoch 20) indicates overfitting as the primary bottleneck
+— the model memorizes more than it generalizes. Bigger or longer training is not the fix;
+better regularization is.
+
+1. Label smoothing (highest impact, trivial to add)
+   - CrossEntropyLoss(label_smoothing=0.1)
+   - Prevents the model from becoming overconfident on training tokens, directly penalizing
+     the behavior driving the train/val gap.
+
+2. More dropout (0.2 or 0.3 instead of 0.1)
+   - Train loss keeps falling while val stalls — a classic sign that dropout is too light.
+   - Apply to attention weights and FFN activations.
+
+3. LR warmup before cosine decay
+   - Currently cosine annealing starts from the full LR at step 0.
+   - A short linear warmup (~500 steps) stabilizes early training and often leads to a
+     better loss basin before the decay phase begins.
+
+4. Larger sliding window stride (stride=5 or 10 instead of 1)
+   - Stride=1 means adjacent training sequences share 49/50 tokens — extremely correlated.
+   - A larger stride produces more diverse batches, acting as a natural regularizer and
+     reducing the effective dataset redundancy.
+
+
+SUBMISSION CHECKLIST
+---------------------
+[x] GitHub repo set to public
+[x] Code runs end-to-end (restart kernel → run all)
+[x] Random seed set (SEED=42)
+[x] All plots saved
+[x] Final val PPL reported: 52.62 (baseline), 52.00 (lr_high), 57.46 (lr_low)
+[ ] PDF report written and submitted on Gradescope
+[ ] AI tool disclosure included in report
